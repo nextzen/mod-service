@@ -84,7 +84,6 @@ const processGeojson = (req, res, next) => {
   console.log(`requesting ${req.query.source}`);
 
   req.query.results = [];
-  let count = 0;
 
   oboe(req.query.source)
     .node('features[*]', function(feature) {
@@ -112,8 +111,9 @@ const processCsv = (req, res, next) => {
     skip_empty_lines: true,
     columns: true
   }))
-  .pipe(through2.obj(function(record, _, callback) {
+  .pipe(through2.obj(function(record, enc, callback) {
     if (req.query.results.length < 10) {
+      req.query.fields = _.keys(record);
       req.query.results.push(record);
       callback();
     } else {
@@ -124,14 +124,10 @@ const processCsv = (req, res, next) => {
   }))
   .on('close', () => {
     // stream was closed prematurely
-    req.query.fields = _.keys(req.query.results[0]);
-
     next();
   })
   .on('finish', () => {
     // stream was ended normally
-    req.query.fields = _.keys(req.query.results[0]);
-
     next();
   });
 
