@@ -117,7 +117,7 @@ const processCsv = (req, res, next) => {
       req.query.results.push(record);
       callback();
     } else {
-      // there are enough records so end the stream prematurely
+      // there are enough records so end the stream prematurely, handle in 'close' event
       this.destroy();
     }
 
