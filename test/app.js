@@ -76,7 +76,7 @@ tape('arcgis tests', test => {
               attribute2: 'feature 2 attribute 2 value'
             }
           ]
-        })
+        });
 
         t.end();
         mock_arcgis_server.close();
@@ -199,7 +199,7 @@ tape('csv tests', test => {
 
     const mock_geojson_app = require('express')();
     mock_geojson_app.get('/file.csv', (req, res, next) => {
-      const rows = _.range(11).reduce((rows, i) => {
+      const rows = _.range(20).reduce((rows, i) => {
         return rows.concat(`feature ${i} attribute 1 value,feature ${i} attribute 2 value`);
       }, ['attribute 1,attribute 2']);
 
@@ -224,6 +224,50 @@ tape('csv tests', test => {
           type: 'csv',
           fields: ['attribute 1', 'attribute 2'],
           results: _.range(10).reduce((features, i) => {
+            features.push({
+              'attribute 1': `feature ${i} attribute 1 value`,
+              'attribute 2': `feature ${i} attribute 2 value`
+            });
+            return features;
+          }, [])
+        });
+
+        t.end();
+        mock_geojson_server.close();
+        mod_server.close();
+      });
+
+  });
+
+  test.test('csv consisting of less than 10 records should return all', t => {
+
+    const mock_geojson_app = require('express')();
+    mock_geojson_app.get('/file.csv', (req, res, next) => {
+      const rows = _.range(2).reduce((rows, i) => {
+        return rows.concat(`feature ${i} attribute 1 value,feature ${i} attribute 2 value`);
+      }, ['attribute 1,attribute 2']);
+
+      res.status(200).send(rows.join('\n'));
+
+    });
+
+    const mock_geojson_server = mock_geojson_app.listen();
+
+    const mod_app = require('../app')();
+    const mod_server = mod_app.listen();
+
+    request
+      .get(`http://localhost:${mod_server.address().port}/fields`)
+      .accept('json')
+      .query({
+        source: `http://localhost:${mock_geojson_server.address().port}/file.csv`
+      })
+      .end((err, response) => {
+        t.equals(response.statusCode, 200);
+        t.deepEquals(JSON.parse(response.text), {
+          type: 'csv',
+          fields: ['attribute 1', 'attribute 2'],
+          results: _.range(2).reduce((features, i) => {
             features.push({
               'attribute 1': `feature ${i} attribute 1 value`,
               'attribute 2': `feature ${i} attribute 2 value`

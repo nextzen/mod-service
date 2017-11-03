@@ -5,6 +5,7 @@ const request = require('superagent');
 const binaryParser = require('superagent-binary-parser');
 const csvParse = require( 'csv-parse' );
 const through2 = require('through2');
+const oboe = require('oboe');
 
 const arcgisRegexp = /(Map|Feature)Server\/\d+\/?$/;
 
@@ -82,21 +83,22 @@ const lookupArcgisSampleRecords = (req, res, next) => {
 const processGeojson = (req, res, next) => {
   console.log(`requesting ${req.query.source}`);
 
-  request
-    .get(req.query.source)
-    .parse(binaryParser).buffer()
-    .then((response) => {
-      const parsed = JSON.parse(response.body);
+  req.query.results = [];
+  let count = 0;
 
-      req.query.fields = _.keys(parsed.features[0].properties);
-      req.query.results = _.take(parsed.features, 10).map( _.property('properties') );
-
+  oboe(req.query.source)
+    .node('features[*]', function(feature) {
+      req.query.fields = _.keys(feature.properties);
+      req.query.results.push(feature.properties);
+    })
+    .node('features[9]', function() {
+      // bail after the 10th result.  'done' does not get called after .abort()
+      //  so next() must be called explicitly
+      this.abort();
       next();
-
-    }, (err) => {
-      console.error(err);
+    })
+    .done(() => {
       next();
-
     });
 
 };
@@ -104,27 +106,31 @@ const processGeojson = (req, res, next) => {
 const processCsv = (req, res, next) => {
   console.log(`requesting ${req.query.source}`);
 
-  const records = [];
-  var count = 0;
+  req.query.results = [];
 
   request.get(req.query.source).pipe(csvParse({
     skip_empty_lines: true,
     columns: true
   }))
   .pipe(through2.obj(function(record, _, callback) {
-    count++;
-    if (records.length < 10) {
-      records.push(record);
+    if (req.query.results.length < 10) {
+      req.query.results.push(record);
+      callback();
+    } else {
+      // there are enough records so end the stream prematurely
+      this.destroy();
     }
 
-    callback();
-
   }))
-  .on('finish', function() {
-    console.log(`done reading CSV: ${records.length}, count: ${count}`);
+  .on('close', () => {
+    // stream was closed prematurely
+    req.query.fields = _.keys(req.query.results[0]);
 
-    req.query.fields = _.keys(records[0]);
-    req.query.results = records;
+    next();
+  })
+  .on('finish', () => {
+    // stream was ended normally
+    req.query.fields = _.keys(req.query.results[0]);
 
     next();
   });
