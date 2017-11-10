@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const temp = require('temp').track();
 const _ = require('lodash');
+const archiver = require('archiver');
 
 tape('arcgis tests', test => {
   test.test('fields and sample results', t => {
@@ -194,6 +195,156 @@ tape('geojson tests', test => {
 
 });
 
+tape('geojson.zip tests', test => {
+  test.test('fields and sample results, should limit to 10', t => {
+
+    const mock_geojson_app = require('express')();
+    mock_geojson_app.get('/file.geojson.zip', (req, res, next) => {
+      const output = fs.createWriteStream(__dirname + '/example.zip');
+
+      output.on('close', function() {
+        const zipContents = fs.readFileSync(__dirname + '/example.zip');
+
+        res.set('Content-Type', 'application/zip');
+        res.set('Content-Disposition', 'attachment; filename=file.geojson.zip');
+        res.set('Content-Length', zipContents.length);
+        res.end(zipContents, 'binary');
+
+      });
+
+      const data = {
+        type: 'FeatureCollection',
+        features: _.range(11).reduce((features, i) => {
+          features.push({
+            type: 'Feature',
+            properties: {
+              'attribute 1': `feature ${i} attribute 1 value`,
+              'attribute 2': `feature ${i} attribute 2 value`
+            }
+          });
+          return features;
+        }, [])
+      }
+
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+      });
+      archive.pipe(output);
+      archive.append(JSON.stringify(data, null, 2), { name: 'file1.txt' });
+      archive.finalize();
+
+    });
+
+    const mock_geojson_server = mock_geojson_app.listen();
+
+    const mod_app = require('../app')();
+    const mod_server = mod_app.listen();
+
+    request
+      .get(`http://localhost:${mod_server.address().port}/fields`)
+      .accept('json')
+      .query({
+        source: `http://localhost:${mock_geojson_server.address().port}/file.geojson.zip`
+      })
+      .end((err, response) => {
+        t.equals(response.statusCode, 200);
+        t.deepEquals(JSON.parse(response.text), {
+          type: 'geojson.zip',
+          fields: ['attribute 1', 'attribute 2'],
+          results: _.range(10).reduce((features, i) => {
+            features.push({
+              'attribute 1': `feature ${i} attribute 1 value`,
+              'attribute 2': `feature ${i} attribute 2 value`
+            });
+            return features;
+          }, [])
+        });
+
+        t.end();
+        mock_geojson_server.close();
+        mod_server.close();
+      });
+
+  });
+
+  test.test('fields and sample results, should limit to 10', t => {
+
+    const mock_geojson_app = require('express')();
+    mock_geojson_app.get('/file.geojson.zip', (req, res, next) => {
+      const output = fs.createWriteStream(__dirname + '/example.zip');
+
+      output.on('close', function() {
+        const zipContents = fs.readFileSync(__dirname + '/example.zip');
+
+        res.set('Content-Type', 'application/zip');
+        res.set('Content-Disposition', 'attachment; filename=file.geojson.zip');
+        res.set('Content-Length', zipContents.length);
+        res.end(zipContents, 'binary');
+
+      });
+
+      output.on('end', function() {
+        console.error('Data has been drained');
+
+      });
+
+      const data = {
+        type: 'FeatureCollection',
+        features: _.range(2).reduce((features, i) => {
+          features.push({
+            type: 'Feature',
+            properties: {
+              'attribute 1': `feature ${i} attribute 1 value`,
+              'attribute 2': `feature ${i} attribute 2 value`
+            }
+          });
+          return features;
+        }, [])
+      }
+
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+      });
+      archive.pipe(output);
+      archive.append(JSON.stringify(data, null, 2), { name: 'file1.txt' });
+      archive.finalize();
+
+    });
+
+    const mock_geojson_server = mock_geojson_app.listen();
+
+    const mod_app = require('../app')();
+    const mod_server = mod_app.listen();
+
+    request
+      .get(`http://localhost:${mod_server.address().port}/fields`)
+      .accept('json')
+      .query({
+        source: `http://localhost:${mock_geojson_server.address().port}/file.geojson.zip`
+      })
+      .end((err, response) => {
+        t.equals(response.statusCode, 200);
+        t.deepEquals(JSON.parse(response.text), {
+          type: 'geojson.zip',
+          fields: ['attribute 1', 'attribute 2'],
+          results: _.range(2).reduce((features, i) => {
+            features.push({
+              'attribute 1': `feature ${i} attribute 1 value`,
+              'attribute 2': `feature ${i} attribute 2 value`
+            });
+            return features;
+          }, [])
+        });
+
+        t.end();
+        mock_geojson_server.close();
+        mod_server.close();
+      });
+
+  });
+
+});
+
 tape('csv tests', test => {
   test.test('fields and sample results, should limit to 10', t => {
 
@@ -268,6 +419,70 @@ tape('csv tests', test => {
           type: 'csv',
           fields: ['attribute 1', 'attribute 2'],
           results: _.range(2).reduce((features, i) => {
+            features.push({
+              'attribute 1': `feature ${i} attribute 1 value`,
+              'attribute 2': `feature ${i} attribute 2 value`
+            });
+            return features;
+          }, [])
+        });
+
+        t.end();
+        mock_geojson_server.close();
+        mod_server.close();
+      });
+
+  });
+
+});
+
+tape('csv.zip tests', test => {
+  test.test('fields and sample results, should limit to 10', t => {
+
+    const mock_geojson_app = require('express')();
+    mock_geojson_app.get('/file.csv.zip', (req, res, next) => {
+      const output = fs.createWriteStream(__dirname + '/example.zip');
+
+      output.on('close', function() {
+        const zipContents = fs.readFileSync(__dirname + '/example.zip');
+
+        res.set('Content-Type', 'application/zip');
+        res.set('Content-Disposition', 'attachment; filename=file.csv.zip');
+        res.set('Content-Length', zipContents.length);
+        res.end(zipContents, 'binary');
+
+      });
+
+      const data = _.range(20).reduce((rows, i) => {
+        return rows.concat(`feature ${i} attribute 1 value,feature ${i} attribute 2 value`);
+      }, ['attribute 1,attribute 2']);
+
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Sets the compression level.
+      });
+      archive.pipe(output);
+      archive.append(data.join('\n'), { name: 'file1.csv' });
+      archive.finalize();
+
+    });
+
+    const mock_geojson_server = mock_geojson_app.listen();
+
+    const mod_app = require('../app')();
+    const mod_server = mod_app.listen();
+
+    request
+      .get(`http://localhost:${mod_server.address().port}/fields`)
+      .accept('json')
+      .query({
+        source: `http://localhost:${mock_geojson_server.address().port}/file.csv.zip`
+      })
+      .end((err, response) => {
+        t.equals(response.statusCode, 200);
+        t.deepEquals(JSON.parse(response.text), {
+          type: 'csv.zip',
+          fields: ['attribute 1', 'attribute 2'],
+          results: _.range(10).reduce((features, i) => {
             features.push({
               'attribute 1': `feature ${i} attribute 1 value`,
               'attribute 2': `feature ${i} attribute 2 value`

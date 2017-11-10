@@ -6,6 +6,7 @@ const binaryParser = require('superagent-binary-parser');
 const csvParse = require( 'csv-parse' );
 const through2 = require('through2');
 const oboe = require('oboe');
+const unzip = require('unzip');
 
 const arcgisRegexp = /(Map|Feature)Server\/\d+\/?$/;
 
@@ -16,8 +17,12 @@ const determineType = (req, res, next) => {
     req.query.type = 'arcgis';
   } else if (_.endsWith(source, '.geojson')) {
     req.query.type = 'geojson';
+  } else if (_.endsWith(source, '.geojson.zip')) {
+    req.query.type = 'geojson.zip';
   } else if (_.endsWith(source, '.csv')) {
     req.query.type = 'csv';
+  } else if (_.endsWith(source, '.csv.zip')) {
+    req.query.type = 'csv.zip';
   } else {
     req.query.type = 'unknown';
   }
@@ -102,6 +107,34 @@ const processGeojson = (req, res, next) => {
 
 };
 
+const processGeojsonZip = (req, res, next) => {
+  console.log(`requesting ${req.query.source}`);
+
+  request
+    .get(req.query.source)
+    .pipe(unzip.Parse())
+    .on('entry', entry => {
+      req.query.results = [];
+
+      oboe(entry)
+        .node('features[*]', function(feature) {
+          req.query.fields = _.keys(feature.properties);
+          req.query.results.push(feature.properties);
+        })
+        .node('features[9]', function() {
+          // bail after the 10th result.  'done' does not get called after .abort()
+          //  so next() must be called explicitly
+          this.abort();
+          next();
+        })
+        .done(() => {
+          next();
+        });
+
+    });
+
+};
+
 const processCsv = (req, res, next) => {
   console.log(`requesting ${req.query.source}`);
 
@@ -133,6 +166,42 @@ const processCsv = (req, res, next) => {
 
 };
 
+const processCsvZip = (req, res, next) => {
+  console.log(`requesting ${req.query.source}`);
+
+  req.query.results = [];
+
+  request.get(req.query.source)
+  .pipe(unzip.Parse())
+  .on('entry', entry => {
+    entry.pipe(csvParse({
+      skip_empty_lines: true,
+      columns: true
+    }))
+    .pipe(through2.obj(function(record, enc, callback) {
+      if (req.query.results.length < 10) {
+        req.query.fields = _.keys(record);
+        req.query.results.push(record);
+        callback();
+      } else {
+        // there are enough records so end the stream prematurely, handle in 'close' event
+        this.destroy();
+      }
+
+    }))
+    .on('close', () => {
+      // stream was closed prematurely
+      next();
+    })
+    .on('finish', () => {
+      // stream was ended normally
+      next();
+    });
+
+  });
+
+};
+
 const output = (req, res, next) => {
   res.status(200).send({
     type: req.query.type,
@@ -151,10 +220,24 @@ module.exports = () => {
   const geojsonRouter = express.Router();
   geojsonRouter.get('/fields', typecheck('geojson'), processGeojson);
 
+  const geojsonZipRouter = express.Router();
+  geojsonRouter.get('/fields', typecheck('geojson.zip'), processGeojsonZip);
+
   const csvRouter = express.Router();
   csvRouter.get('/fields', typecheck('csv'), processCsv);
 
-  app.get('/fields', determineType, arcgisRouter, geojsonRouter, csvRouter, output);
+  const csvZipRouter = express.Router();
+  csvRouter.get('/fields', typecheck('csv.zip'), processCsvZip);
+
+  app.get('/fields',
+    determineType,
+    arcgisRouter,
+    geojsonRouter,
+    geojsonZipRouter,
+    csvRouter,
+    csvZipRouter,
+    output
+  );
 
   app.use(express.static(__dirname + '/public'));
 
