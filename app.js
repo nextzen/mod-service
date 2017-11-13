@@ -121,6 +121,12 @@ const processGeojsonZip = (req, res, next) => {
     .get(req.query.source)
     .pipe(unzip.Parse())
     .on('entry', entry => {
+      // skip files that don't end with .geojson
+      if (!_.endsWith(entry.path, '.geojson')) {
+        return;
+      }
+
+      // process the .geojson file
       req.query.results = [];
 
       oboe(entry)
@@ -181,6 +187,12 @@ const processCsvZip = (req, res, next) => {
   request.get(req.query.source)
   .pipe(unzip.Parse())
   .on('entry', entry => {
+    // skip files that don't end with .csv
+    if (!_.endsWith(entry.path, '.csv')) {
+      return;
+    }
+
+    // process the .csv file
     entry.pipe(csvParse({
       skip_empty_lines: true,
       columns: true

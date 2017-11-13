@@ -230,7 +230,8 @@ tape('geojson.zip tests', test => {
         zlib: { level: 9 } // Sets the compression level.
       });
       archive.pipe(output);
-      archive.append(JSON.stringify(data, null, 2), { name: 'file1.txt' });
+      archive.append('this is the README', { name: 'README.md' });
+      archive.append(JSON.stringify(data, null, 2), { name: 'file1.geojson' });
       archive.finalize();
 
     });
@@ -307,7 +308,8 @@ tape('geojson.zip tests', test => {
         zlib: { level: 9 } // Sets the compression level.
       });
       archive.pipe(output);
-      archive.append(JSON.stringify(data, null, 2), { name: 'file1.txt' });
+      archive.append('this is the README', { name: 'README.md' });
+      archive.append(JSON.stringify(data, null, 2), { name: 'file1.geojson' });
       archive.finalize();
 
     });
@@ -463,6 +465,7 @@ tape('csv.zip tests', test => {
         zlib: { level: 9 } // Sets the compression level.
       });
       archive.pipe(output);
+      archive.append('this is the README', { name: 'README.md' });
       archive.append(data.join('\n'), { name: 'file1.csv' });
       archive.finalize();
 
