@@ -224,7 +224,7 @@ tape('geojson.zip tests', test => {
           });
           return features;
         }, [])
-      }
+      };
 
       const archive = archiver('zip', {
         zlib: { level: 9 } // Sets the compression level.
@@ -302,7 +302,7 @@ tape('geojson.zip tests', test => {
           });
           return features;
         }, [])
-      }
+      };
 
       const archive = archiver('zip', {
         zlib: { level: 9 } // Sets the compression level.
