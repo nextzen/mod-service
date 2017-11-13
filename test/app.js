@@ -249,7 +249,8 @@ tape('geojson.zip tests', test => {
       .end((err, response) => {
         t.equals(response.statusCode, 200);
         t.deepEquals(JSON.parse(response.text), {
-          type: 'geojson.zip',
+          type: 'geojson',
+          compression: 'zip',
           fields: ['attribute 1', 'attribute 2'],
           results: _.range(10).reduce((features, i) => {
             features.push({
@@ -325,7 +326,8 @@ tape('geojson.zip tests', test => {
       .end((err, response) => {
         t.equals(response.statusCode, 200);
         t.deepEquals(JSON.parse(response.text), {
-          type: 'geojson.zip',
+          type: 'geojson',
+          compression: 'zip',
           fields: ['attribute 1', 'attribute 2'],
           results: _.range(2).reduce((features, i) => {
             features.push({
@@ -480,7 +482,8 @@ tape('csv.zip tests', test => {
       .end((err, response) => {
         t.equals(response.statusCode, 200);
         t.deepEquals(JSON.parse(response.text), {
-          type: 'csv.zip',
+          type: 'csv',
+          compression: 'zip',
           fields: ['attribute 1', 'attribute 2'],
           results: _.range(10).reduce((features, i) => {
             features.push({

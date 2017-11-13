@@ -18,11 +18,13 @@ const determineType = (req, res, next) => {
   } else if (_.endsWith(source, '.geojson')) {
     req.query.type = 'geojson';
   } else if (_.endsWith(source, '.geojson.zip')) {
-    req.query.type = 'geojson.zip';
+    req.query.type = 'geojson';
+    req.query.compression = 'zip';
   } else if (_.endsWith(source, '.csv')) {
     req.query.type = 'csv';
   } else if (_.endsWith(source, '.csv.zip')) {
-    req.query.type = 'csv.zip';
+    req.query.type = 'csv';
+    req.query.compression = 'zip';
   } else {
     req.query.type = 'unknown';
   }
@@ -31,8 +33,13 @@ const determineType = (req, res, next) => {
 
 };
 
-const typecheck = (type) => (req, res, next) => {
-  next(req.query.type !== type ? 'route' : undefined);
+const typecheck = (type, compression) => (req, res, next) => {
+  if (req.query.type === type && req.query.compression === compression) {
+    next();
+  } else {
+    next('route');
+  }
+
 };
 
 const lookupArcgisFields = (req, res, next) => {
@@ -205,6 +212,7 @@ const processCsvZip = (req, res, next) => {
 const output = (req, res, next) => {
   res.status(200).send({
     type: req.query.type,
+    compression: req.query.compression,
     fields: req.query.fields,
     results: req.query.results
   });
@@ -221,13 +229,13 @@ module.exports = () => {
   geojsonRouter.get('/fields', typecheck('geojson'), processGeojson);
 
   const geojsonZipRouter = express.Router();
-  geojsonRouter.get('/fields', typecheck('geojson.zip'), processGeojsonZip);
+  geojsonRouter.get('/fields', typecheck('geojson', 'zip'), processGeojsonZip);
 
   const csvRouter = express.Router();
   csvRouter.get('/fields', typecheck('csv'), processCsv);
 
   const csvZipRouter = express.Router();
-  csvRouter.get('/fields', typecheck('csv.zip'), processCsvZip);
+  csvRouter.get('/fields', typecheck('csv', 'zip'), processCsvZip);
 
   app.get('/fields',
     determineType,
