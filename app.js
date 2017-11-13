@@ -14,7 +14,7 @@ const determineType = (req, res, next) => {
   const source = req.query.source;
 
   if (arcgisRegexp.test(source)) {
-    req.query.type = 'arcgis';
+    req.query.type = 'ESRI';
   } else if (_.endsWith(source, '.geojson')) {
     req.query.type = 'geojson';
   } else if (_.endsWith(source, '.geojson.zip')) {
@@ -215,7 +215,7 @@ module.exports = () => {
   const app = express();
 
   const arcgisRouter = express.Router();
-  arcgisRouter.get('/fields', typecheck('arcgis'), lookupArcgisFields, lookupArcgisSampleRecords);
+  arcgisRouter.get('/fields', typecheck('ESRI'), lookupArcgisFields, lookupArcgisSampleRecords);
 
   const geojsonRouter = express.Router();
   geojsonRouter.get('/fields', typecheck('geojson'), processGeojson);

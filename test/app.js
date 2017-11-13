@@ -65,7 +65,7 @@ tape('arcgis tests', test => {
       .end((err, response) => {
         t.equals(response.statusCode, 200);
         t.deepEquals(JSON.parse(response.text), {
-          type: 'arcgis',
+          type: 'ESRI',
           fields: ['field 1', 'field 2'],
           results: [
             {
