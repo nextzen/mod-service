@@ -5,6 +5,22 @@ const path = require('path');
 const temp = require('temp').track();
 const _ = require('lodash');
 const archiver = require('archiver');
+const Writable = require('stream').Writable;
+
+// helper class that builds up the contents to be written to a .zip file but
+// without needing an actual on-disk file
+class ZipContentsStream extends Writable {
+  constructor(options) {
+    super(options);
+    this.buffer = new Buffer('');
+  }
+
+  write(chunk, enc) {
+    const buffer = (Buffer.isBuffer(chunk)) ? chunk : new Buffer(chunk, enc);
+    this.buffer = Buffer.concat([this.buffer, buffer]);
+  }
+
+}
 
 tape('arcgis tests', test => {
   test.test('fields and sample results', t => {
@@ -200,16 +216,13 @@ tape('geojson.zip tests', test => {
 
     const mock_geojson_app = require('express')();
     mock_geojson_app.get('/file.geojson.zip', (req, res, next) => {
-      const output = fs.createWriteStream(__dirname + '/example.zip');
+      const output = new ZipContentsStream();
 
-      output.on('close', function() {
-        const zipContents = fs.readFileSync(__dirname + '/example.zip');
-
+      output.on('finish', function() {
         res.set('Content-Type', 'application/zip');
         res.set('Content-Disposition', 'attachment; filename=file.geojson.zip');
-        res.set('Content-Length', zipContents.length);
-        res.end(zipContents, 'binary');
-
+        res.set('Content-Length', this.buffer.length);
+        res.end(this.buffer, 'binary');
       });
 
       const data = {
@@ -273,21 +286,13 @@ tape('geojson.zip tests', test => {
 
     const mock_geojson_app = require('express')();
     mock_geojson_app.get('/file.geojson.zip', (req, res, next) => {
-      const output = fs.createWriteStream(__dirname + '/example.zip');
+      const output = new ZipContentsStream();
 
-      output.on('close', function() {
-        const zipContents = fs.readFileSync(__dirname + '/example.zip');
-
+      output.on('finish', function() {
         res.set('Content-Type', 'application/zip');
         res.set('Content-Disposition', 'attachment; filename=file.geojson.zip');
-        res.set('Content-Length', zipContents.length);
-        res.end(zipContents, 'binary');
-
-      });
-
-      output.on('end', function() {
-        console.error('Data has been drained');
-
+        res.set('Content-Length', this.buffer.length);
+        res.end(this.buffer, 'binary');
       });
 
       const data = {
@@ -445,16 +450,13 @@ tape('csv.zip tests', test => {
 
     const mock_geojson_app = require('express')();
     mock_geojson_app.get('/file.csv.zip', (req, res, next) => {
-      const output = fs.createWriteStream(__dirname + '/example.zip');
+      const output = new ZipContentsStream();
 
-      output.on('close', function() {
-        const zipContents = fs.readFileSync(__dirname + '/example.zip');
-
+      output.on('finish', function() {
         res.set('Content-Type', 'application/zip');
         res.set('Content-Disposition', 'attachment; filename=file.csv.zip');
-        res.set('Content-Length', zipContents.length);
-        res.end(zipContents, 'binary');
-
+        res.set('Content-Length', this.buffer.length);
+        res.end(this.buffer, 'binary');
       });
 
       const data = _.range(20).reduce((rows, i) => {
