@@ -29,34 +29,43 @@
           // clear out the existing results
           $('#results').html('<h4>Working...</h4>');
 
-          // console.log($("#source").val());
-          $.get(`/fields?source=${$("#source").val()}`, (r) => {
+          $.get(`/fields`, {source: $("#source").val()}, r => {
             // clear out the existing results
-            $('#results').html(`<a href="/fields?source=${$("#source").val()}">request</a>`);
-
-            const table = $('<table/>');
+            const data_table = $('<table/>');
 
             // create a header row from the fields
-            const header_row = r.fields.reduce((row, field) => {
+            const header_row = r.source_data.fields.reduce((row, field) => {
               row.append($('<th/>').text(field));
               return row;
             }, $('<tr/>'));
-            table.append(header_row);
+            data_table.append(header_row);
 
             // create data rows
-            r.results.forEach(result => {
-              const data_row = r.fields.reduce((row, field) => {
+            r.source_data.results.forEach(result => {
+              const data_row = r.source_data.fields.reduce((row, field) => {
                 row.append($('<td/>').text(result[field]));
                 return row;
                 row.append(col);
               }, $('<tr/>'));
-              table.append(data_row);
+              data_table.append(data_row);
 
             });
 
-            $('#results').append($('<h4>').text(`Type: ${r.type}`));
-            $('#results').append(table);
+            const metadata_table = $('<table/>');
+            metadata_table.append(`<tr><td>Protocol</td><td>${r.type}</td></tr>`);
+            metadata_table.append(`<tr><td>Type</td><td>${r.conform.type}</td></tr>`);
+            metadata_table.append(`<tr><td>Compression</td><td>${r.compression ? r.compression : ''}</td></tr>`);
+            metadata_table.append(`<tr><td>Full Request</td><td><a target="_new" href="/fields?source=${$("#source").val()}">request</a></td></tr>`);
 
+            // add the metadata and data tables
+            $('#results').html($('<p/>'));
+            $('#results').append(metadata_table);
+            $('#results').append($('<p/>'));
+            $('#results').append(data_table);
+
+          }).fail(r => {
+            // request failed, 
+            $('#results').html(`<h3>${r.responseText}</h3><h4>${r.status} (${r.statusText})</h4>`);
           });
 
 

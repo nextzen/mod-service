@@ -10,31 +10,50 @@ const unzip = require('unzip');
 
 const arcgisRegexp = /(Map|Feature)Server\/\d+\/?$/;
 
+const preconditionsCheck = (req, res, next) => {
+  if (!req.query.source) {
+    res.status(400).send('\'source\' parameter is required');
+  } else {
+    next();
+  }
+
+};
+
 const determineType = (req, res, next) => {
   const source = req.query.source;
 
   if (arcgisRegexp.test(source)) {
-    req.query.type = 'ESRI';
+    req.query.protocol = 'ESRI';
+    req.query.type = 'geojson';
   } else if (_.endsWith(source, '.geojson')) {
+    req.query.protocol = 'http';
     req.query.type = 'geojson';
   } else if (_.endsWith(source, '.geojson.zip')) {
+    req.query.protocol = 'http';
     req.query.type = 'geojson';
     req.query.compression = 'zip';
   } else if (_.endsWith(source, '.csv')) {
+    req.query.protocol = 'http';
     req.query.type = 'csv';
   } else if (_.endsWith(source, '.csv.zip')) {
+    req.query.protocol = 'http';
     req.query.type = 'csv';
     req.query.compression = 'zip';
   } else {
-    req.query.type = 'unknown';
+    req.query.protocol = 'unknown';
   }
 
-  next();
+  // if protocol is unknown, return a 400
+  if (req.query.protocol === 'unknown') {
+    res.status(400).send('Unsupported type');
+  } else {
+    next();
+  }
 
 };
 
-const typecheck = (type, compression) => (req, res, next) => {
-  if (req.query.type === type && req.query.compression === compression) {
+const typecheck = (protocol, type, compression) => (req, res, next) => {
+  if (req.query.protocol === protocol && req.query.type === type && req.query.compression === compression) {
     next();
   } else {
     next('route');
@@ -223,11 +242,19 @@ const processCsvZip = (req, res, next) => {
 
 const output = (req, res, next) => {
   res.status(200).send({
-    type: req.query.type,
+    coverage: {},
+    type: req.query.protocol,
     compression: req.query.compression,
-    fields: req.query.fields,
-    results: req.query.results
+    data: req.query.source,
+    source_data: {
+      fields: req.query.fields,
+      results: req.query.results
+    },
+    conform: {
+      type: req.query.type
+    }
   });
+
   next();
 };
 
@@ -235,21 +262,22 @@ module.exports = () => {
   const app = express();
 
   const arcgisRouter = express.Router();
-  arcgisRouter.get('/fields', typecheck('ESRI'), lookupArcgisFields, lookupArcgisSampleRecords);
+  arcgisRouter.get('/fields', typecheck('ESRI', 'geojson'), lookupArcgisFields, lookupArcgisSampleRecords);
 
   const geojsonRouter = express.Router();
-  geojsonRouter.get('/fields', typecheck('geojson'), processGeojson);
+  geojsonRouter.get('/fields', typecheck('http', 'geojson'), processGeojson);
 
   const geojsonZipRouter = express.Router();
-  geojsonRouter.get('/fields', typecheck('geojson', 'zip'), processGeojsonZip);
+  geojsonRouter.get('/fields', typecheck('http', 'geojson', 'zip'), processGeojsonZip);
 
   const csvRouter = express.Router();
-  csvRouter.get('/fields', typecheck('csv'), processCsv);
+  csvRouter.get('/fields', typecheck('http', 'csv'), processCsv);
 
   const csvZipRouter = express.Router();
-  csvRouter.get('/fields', typecheck('csv', 'zip'), processCsvZip);
+  csvRouter.get('/fields', typecheck('http', 'csv', 'zip'), processCsvZip);
 
   app.get('/fields',
+    preconditionsCheck,
     determineType,
     arcgisRouter,
     geojsonRouter,
